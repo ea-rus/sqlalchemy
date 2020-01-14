@@ -1598,13 +1598,9 @@ class MSSQLCompiler(compiler.SQLCompiler):
         if select._distinct:
             s += "DISTINCT "
 
-        if (
-            not self.dialect._support_limit_offset
-            and select._simple_int_limit
-            and (
-                select._offset_clause is None
-                or (select._simple_int_offset and select._offset == 0)
-            )
+        if select._simple_int_limit and (
+            select._offset_clause is None
+            or (select._simple_int_offset and select._offset == 0)
         ):
             # ODBC drivers and possibly others
             # don't support bind params in the SELECT clause on SQL Server.
@@ -1625,7 +1621,17 @@ class MSSQLCompiler(compiler.SQLCompiler):
         return text
 
     def limit_clause(self, select, **kw):
-        if self.dialect._support_limit_offset:
+        if self.dialect._support_limit_offset and (
+            (
+                not select._simple_int_limit
+                and select._limit_clause is not None
+            )
+            or (
+                select._offset_clause is not None
+                and not select._simple_int_offset
+                or select._offset
+            )
+        ):
             text = ""
             if select._offset_clause is not None:
                 text += " OFFSET %s ROWS" % self.process(
